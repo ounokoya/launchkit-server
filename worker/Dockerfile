@@ -20,5 +20,6 @@ FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=builder /src/target/release/launchkit-worker /usr/local/bin/launchkit-worker
 COPY shared/i18n /app/i18n
 ENV I18N_DIR=/app/i18n
-USER 65532:65532 # nonroot, numeric so that Kubernetes can check runAsNonRoot
+# nonroot, written as numbers so that Kubernetes can check runAsNonRoot.
+USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/launchkit-worker"]
