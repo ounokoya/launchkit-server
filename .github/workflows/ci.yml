@@ -1,0 +1,110 @@
+# Server CI (ADR-0009): unit, integration (e2e), coverage ≥ 80 % and security checks on every push.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API · tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Build (warnings are errors)
+        run: dotnet build LaunchKit.slnx
+      - name: Unit + integration tests on a real ArangoDB (Testcontainers), coverage ≥ 80 %
+        run: ./scripts/api-coverage.sh
+      - name: Vulnerable NuGet packages
+        run: |
+          dotnet list LaunchKit.slnx package --vulnerable --include-transitive | tee vulnerable.txt
+          ! grep -q "has the following vulnerable packages" vulnerable.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: coverage/api/
+
+  worker:
+    name: Worker · tests and coverage
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt, llvm-tools-preview
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-deny,cargo-audit
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - name: Unit + integration tests (ArangoDB and Mailpit in containers), coverage ≥ 80 %
+        run: cargo llvm-cov --fail-under-lines 80
+      - run: cargo deny check
+      - run: cargo audit
+
+  scenario:
+    name: Scenario A / B (API + worker + ArangoDB + Mailpit)
+    runs-on: ubuntu-latest
+    needs: [api, worker]
+    env:
+      ADMIN_PASSWORD: ci-admin-password
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - run: docker compose up --build --detach --wait
+      - name: Run the scenario
+        env:
+          SCENARIO_API_URL: http://localhost:5080
+          SCENARIO_MAILPIT_URL: http://localhost:8025
+          SCENARIO_ADMIN_PASSWORD: ci-admin-password
+        run: dotnet test tests/LaunchKit.Scenario.Tests
+      - if: failure()
+        run: docker compose logs
+      - if: always()
+        run: docker compose down --volumes
+
+  security:
+    name: Security · CodeQL, secrets, images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: csharp, rust
+          build-mode: none
+      - uses: github/codeql-action/analyze@v3
+      - name: Build images
+        run: |
+          docker build -f api/Dockerfile -t launchkit-api:ci .
+          docker build -f worker/Dockerfile -t launchkit-worker:ci .
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: launchkit-api:ci
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: launchkit-worker:ci
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true

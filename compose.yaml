@@ -1,0 +1,70 @@
+# Server stack for local runs and the A / B scenario: ArangoDB, Mailpit, API, Rust worker.
+# Local demo values only; the deploy repository holds the production setup.
+name: launchkit-server
+
+services:
+  arangodb:
+    image: arangodb:3.12
+    environment:
+      ARANGO_ROOT_PASSWORD: ${ARANGO_PASSWORD:-launchkit-local}
+    ports:
+      - "127.0.0.1:8539:8529"
+    volumes:
+      - arango-data:/var/lib/arangodb3
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8529/_admin/server/availability"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    environment:
+      Arango__Url: http://arangodb:8529
+      Arango__Password: ${ARANGO_PASSWORD:-launchkit-local}
+      App__WebBaseUrl: ${WEB_BASE_URL:-http://localhost:5173}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:-admin-demo-local}
+    ports:
+      - "127.0.0.1:5080:8080"
+    depends_on:
+      arangodb:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    environment:
+      ARANGO_URL: http://arangodb:8529
+      ARANGO_DATABASE: launchkit
+      ARANGO_USER: root
+      ARANGO_PASSWORD: ${ARANGO_PASSWORD:-launchkit-local}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      MAIL_FROM: LaunchKit <noreply@demo.test>
+      APP_BASE_URL: ${WEB_BASE_URL:-http://localhost:5173}
+      I18N_DIR: /app/i18n
+    volumes:
+      - ./shared/i18n:/app/i18n:ro
+    depends_on:
+      arangodb:
+        condition: service_healthy
+      mailpit:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  arango-data:

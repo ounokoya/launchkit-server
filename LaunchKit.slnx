@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/api/" />
+  <Folder Name="/api/src/">
+    <Project Path="api/src/LaunchKit.Api/LaunchKit.Api.csproj" />
+  </Folder>
+  <Folder Name="/api/tests/">
+    <Project Path="api/tests/LaunchKit.Api.IntegrationTests/LaunchKit.Api.IntegrationTests.csproj" />
+    <Project Path="api/tests/LaunchKit.Api.Tests/LaunchKit.Api.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LaunchKit.Scenario.Tests/LaunchKit.Scenario.Tests.csproj" />
+  </Folder>
+</Solution>

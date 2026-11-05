@@ -1,0 +1,38 @@
+[package]
+name = "launchkit-worker"
+version = "0.1.0"
+edition = "2024"
+description = "LaunchKit background worker: job queue, e-mails, simulated payments, invitation expiry"
+publish = false
+
+[lib]
+name = "launchkit_worker"
+path = "src/lib.rs"
+
+[[bin]]
+name = "launchkit-worker"
+path = "src/main.rs"
+
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+harness = false
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4.45", default-features = false, features = ["now"] }
+lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi"] }
+
+[dev-dependencies]
+testcontainers = { version = "0.28", default-features = false, features = ["aws-lc-rs", "watchdog"] }
+
+[profile.release]
+strip = true
+lto = "thin"

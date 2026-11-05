@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+**/target/
+coverage/
+**/TestResults/
+.git/
+*.md
+!shared/**
