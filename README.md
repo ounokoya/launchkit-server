@@ -81,3 +81,7 @@ docs/                        roadmap and API usage guide
 Spec first, then recorded decisions, then tests derived from the spec, then a changelog. The specifications and
 decision records live in a private design repository; comments cite them by name (`server-api.md`, ADR-0004…). See
 [`docs/api_usage.md`](docs/api_usage.md) for the API itself and [`docs/roadmap.md`](docs/roadmap.md) for what comes next.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
