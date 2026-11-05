@@ -14,9 +14,13 @@ RUN mkdir src && echo 'fn main() {}' > src/main.rs && touch src/lib.rs \
 COPY worker/assets ./assets
 COPY worker/src ./src
 RUN touch src/main.rs src/lib.rs && cargo build --release --locked --bin launchkit-worker
+# The only system library the binary needs beyond glibc (TLS is rustls: no OpenSSL at all).
+RUN mkdir /out && cp -L /lib/$(uname -m)-linux-gnu/libgcc_s.so.1 /out/
 
-# glibc 2.36 on both sides (bookworm builder, Debian 12 runtime).
-FROM gcr.io/distroless/cc-debian12:nonroot
+# glibc 2.36 on both sides (bookworm builder, Debian 12 runtime). « base-nossl »: no OpenSSL in the image, as the
+# worker does not use it (its CVEs would only be dead weight to patch).
+FROM gcr.io/distroless/base-nossl-debian12:nonroot
+COPY --from=builder /out/libgcc_s.so.1 /usr/lib/
 COPY --from=builder /src/target/release/launchkit-worker /usr/local/bin/launchkit-worker
 COPY shared/i18n /app/i18n
 ENV I18N_DIR=/app/i18n
